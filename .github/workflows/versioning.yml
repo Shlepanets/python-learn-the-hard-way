@@ -1,0 +1,42 @@
+name: 'update version'
+
+on:
+  push:
+    branches:
+      - 'master'
+
+jobs:
+  set-version:
+    if: ${{ !contains(needs.get-commit-message.outputs.commit-message, '[noci]') }}
+    runs-on: ubuntu-18.04
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Checkout code repo
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set version
+        run: |
+          set -x
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
+          IFS=. read MAJOR MINOR <<< "$(git describe --tags | awk -F'-' '{print $1}')"
+          if [[ "${MINOR}" == "" ]]; then
+            MINOR=0
+            MAJOR=0
+          fi
+
+          MINOR=$((MINOR+1))
+          if [[ "${COMMIT_MESSAGE}" == *"BREAKING CHANGE"* ]] ; then
+            MAJOR=$((MAJOR+1))
+            MINOR=0
+          fi
+
+          git config --global user.email "miha@engineer.com"
+          git config --global user.name "Automatic versioning"
+          git tag -a "${MAJOR}.${MINOR}" -m "${COMMIT_MESSAGE}"
+          git push origin "${MAJOR}.${MINOR}"
